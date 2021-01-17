@@ -34,9 +34,14 @@ func main() {
         select {
         case <-subscription.Out:
             if !first {
-                if err := run(command); err != nil {
+                if err := Run(command, os.Stdout); err != nil {
                     fmt.Fprintf(os.Stderr, "%s error: %s\n", os.Args[0], err)
-                    os.Exit(1)
+                    /* exec.ExitError are not treated as fatal errors since
+                     * we don't want the program to end when a program exit status is 1
+                     * on bad input */
+                    if _, ok := err.(*exec.ExitError); !ok {
+                        os.Exit(1)
+                    }
                 }
             }
             first = false
@@ -55,7 +60,7 @@ func usage() {
     os.Exit(1)
 }
 
-func run(command []string) (err error) {
+func Run(command []string, out io.Writer) (err error) {
     cmd := exec.Command(command[0], command[1:]...)
 
     cmdout, err := cmd.StdoutPipe()
@@ -67,7 +72,7 @@ func run(command []string) (err error) {
         return
     }
 
-    if _, err = io.Copy(os.Stdout, cmdout); err != nil {
+    if _, err = io.Copy(out, cmdout); err != nil {
         return
     }
 
